@@ -1,0 +1,319 @@
+# ============================================================================
+#  LA ISLA ALBORADA  (el prologo jugable: todo sale de este archivo)
+#  - Cada PASO lo cuenta un NPC con sus lineas de "dialogo" (cada linea = un audio que grabas).
+#  - Luego el jugador cumple el "objetivo" (o solo habla con el NPC si es NINGUNO / CONFIRMAR).
+#  - NO escribas {jugador} dentro de los dialogos: el audio se busca por el texto exacto.
+#  - Despues de cambiar textos: python3 herramientas/generar_todo.py  (actualiza lista de audios y datapack)
+#
+#  Tipos de objetivo:
+#    NINGUNO      solo escuchar al NPC
+#    CONFIRMAR    escuchar, hacerlo, y volver a hablar con el NPC ("ya lo hice")
+#    COMANDO      ejecutar un comando:  valor: [ "grimorio", "rancho libreta" ]  (acepta alias)
+#    ITEM         tener un objeto:  material: IRON_INGOT  y/o  nombre: "libreta"  cantidad: 1
+#    CERCA_NPC    acercarse a un NPC:  npc: brasa  radio: 4
+#    AREA         ir a un sitio:  mundo, x, y, z, radio
+#    MATAR / ROMPER / COLOCAR / USAR_BLOQUE   valor: [ZOMBIE]  cantidad: 5
+#    ESPERAR      segundos: 10
+# ============================================================================
+#  IMPORTANTE (inmersion): el jugador NO debe notar que es un tutorial. Por eso los textos hablan "en personaje":
+#  la isla es el lugar donde llegan todos los viajeros, y Alba, Brasa y Valdor son los habitantes que los reciben.
+#  Evita las palabras "tutorial", "guia", "paso", "capitulo", "objetivo" dentro de los dialogos.
+npcs:
+  alba: {nombre: 'Alba, la que recibe', profesion: LIBRARIAN, citizens-id: ''}
+  brasa: {nombre: 'Brasa, la herrera', profesion: TOOLSMITH, citizens-id: ''}
+  valdor: {nombre: 'Valdor, el archivista', profesion: CARTOGRAPHER, citizens-id: ''}
+capitulos:
+  bienvenida:
+    nombre: Llegada a la isla
+    descripcion: Una cara amiga, tu diario y las voces de la isla.
+    icono: COMPASS
+    logro: bienvenida
+    pasos:
+    - id: hola
+      titulo: Una cara amiga
+      npc: alba
+      pista: Habla con la mujer de la plaza
+      dialogo: ['¡Eh, tú! Por fin te veo en pie. El mar te dejó en la orilla con la última marea, y aquí no es costumbre dejar a nadie tirado. Soy Alba.', 'Esta es la Isla Alborada, el lugar donde llegan todos los viajeros antes de cruzar a Aetheria. Aquí descansas, aprendes lo que necesites, y cuando estés listo, un barco te lleva al otro lado.', 'Si te pierdes, no pasa nada: yo te marco el camino. Y si necesitas recordar qué estabas haciendo, escribe barra viaje.']
+      objetivo: {tipo: NINGUNO}
+    - id: personajes
+      titulo: Muchas vidas, un viajero
+      npc: alba
+      pista: Escucha a Alba
+      dialogo: ['Algo que debes saber antes de cruzar: en Aetheria no se vive una sola vida. Cada viajero puede tener varias, y cada una con su inventario, su sangre, su raza y sus propias historias.', 'Lo que le pase a una, no le pasa a las otras. Y cada vida se guarda bajo un PIN que solo tú conoces, así que no lo olvides.', 'Si un día quieres empezar de cero con otra raza, no hace falta borrar nada: basta con abrir una vida nueva.']
+      objetivo: {tipo: NINGUNO}
+    - id: voces
+      titulo: Ecos de la isla
+      npc: alba
+      pista: Escribe /dialogo voz (o /dialogo velocidad)
+      dialogo: ['Por si te molesta mi voz, o hablo demasiado rápido o demasiado lento, puedes ajustarlo. Escribe barra dialogo voz para callarme o devolverme la voz, y barra dialogo velocidad para cambiar el ritmo.', 'Pruébalo ahora, no me ofendo.']
+      objetivo:
+        tipo: COMANDO
+        valor: [dialogo voz, dialogo velocidad, dlg voz, dlg velocidad]
+      recordatorio: Escribe barra dialogo voz y mira qué pasa.
+    - id: diario
+      titulo: Tu diario de viaje
+      npc: alba
+      pista: Escribe /diario
+      dialogo: ['Toma nota de esto: todo viajero lleva un diario. Ábrelo escribiendo barra diario. Ahí se apuntan tus tareas: las que puedes empezar, las que llevas a medias y las que ya terminaste.', 'Si lo prefieres en papel, escribe diario libro y te lo preparo como libro de verdad.']
+      objetivo:
+        tipo: COMANDO
+        valor: [diario, misiones, journal]
+      recordatorio: Escribe barra diario.
+    - id: ir_brasa
+      titulo: La herrería de la isla
+      npc: alba
+      pista: Acércate a Brasa, la herrera
+      dialogo: ['Ya sabes moverte. Ahora toca aprender a trabajar, que nadie vive de la brisa. Ve con Brasa, la herrera: su casa es la de las chimeneas. Sigue la flecha y habla con ella.']
+      objetivo: {tipo: CERCA_NPC, npc: brasa, radio: 5}
+  forja:
+    nombre: El fuego de Brasa
+    descripcion: Oficios, fundición, moldes y armas.
+    icono: ANVIL
+    logro: forja
+    pasos:
+    - id: oficios
+      titulo: Aprender un oficio
+      npc: brasa
+      pista: Escribe /oficios
+      dialogo: ['Así que tú eres el que trajo la marea. Soy Brasa. Aquí nadie recibe nada regalado: todo se fabrica, y todo se aprende.', 'Cada oficio tiene su nivel. Cuanto más lo practicas, mejores cosas sabes hacer. Mira cómo vas escribiendo barra oficios.']
+      objetivo:
+        tipo: COMANDO
+        valor: [oficios, oficio, profesiones]
+    - id: grimorio
+      titulo: El Grimorio
+      npc: brasa
+      pista: Escribe /grimorio
+      dialogo: ['Esto es lo más útil que te llevarás de aquí: el Grimorio. Escribe barra grimorio y verás todas las recetas, qué materiales piden y qué nivel necesitas.', 'Si no sabes cómo se hace algo, mira ahí antes de preguntarme.']
+      objetivo:
+        tipo: COMANDO
+        valor: [grimorio, libroforja, guiaforja]
+    - id: catalogo
+      titulo: Lo que se puede forjar
+      npc: brasa
+      pista: Escribe /armas
+      dialogo: ['Para saber todo lo que sale de una forja, escribe barra armas. Hay armas, armaduras, herramientas, joyas y más, cada cosa en su categoría. Echa un vistazo y sueña un rato.']
+      objetivo:
+        tipo: COMANDO
+        valor: [armas, catalogo]
+    - id: minerales
+      titulo: Metal en bruto
+      npc: brasa
+      pista: Consigue metal y vuelve con Brasa
+      dialogo: ['Todo empieza con el metal. Busca mineral, fúndelo y saca lingotes. Cobre y bronce son los más amables; el acero, la plata y el mithril piden mucho más.', 'Cada metal tiene su fundición, y los mejores solo se rinden en un alto horno. Consigue algo de metal y vuelve conmigo.']
+      objetivo: {tipo: CONFIRMAR}
+      recordatorio: ¿Ya tienes metal? Habla conmigo para seguir.
+    - id: fundicion
+      titulo: La Fundición
+      npc: brasa
+      pista: Coloca una Fundición, échale combustible y metal
+      dialogo: ['La Fundición es tu primera estación. Colócala, échale combustible, como carbón, y luego los lingotes. Con el fuego encendido, el metal se derrite poco a poco.', 'Cuando esté líquido, lo viertes en un molde. Fíjate en la llama: ella te dice cómo va.']
+      objetivo: {tipo: CONFIRMAR}
+    - id: moldes
+      titulo: Dar forma al metal
+      npc: brasa
+      pista: Haz un molde, vierte el metal y recoge la pieza
+      dialogo: ['Los moldes dan forma al metal: espada, hacha, lanza, maza, daga, pico y placa. Pon el molde sobre la fundición y vierte el metal líquido.', 'Espera a que se enfríe y recoge la pieza. Ojo: una hoja o una cabeza sueltas no sirven como arma, son material. El arma de verdad se arma en el yunque.']
+      objetivo: {tipo: CONFIRMAR}
+    - id: clima_forja
+      titulo: Un secreto de oficio
+      npc: brasa
+      pista: Escucha el consejo de Brasa
+      dialogo: ['Te cuento un secreto de oficio: el cielo manda. Si llueve y tu fundición está al aire libre, el metal tarda más en fundirse; con tormenta, todavía más.', 'Pero a veces, en plena tormenta, cae un rayo, templa la pieza y te sale una de regalo. Si tienes prisa, ponle techo a tu fundición.']
+      objetivo: {tipo: NINGUNO}
+    - id: yunque
+      titulo: Tu primer equipo
+      npc: brasa
+      pista: Fabrica algo en el yunque y vuelve con Brasa
+      dialogo: ['Con las piezas listas, ve al yunque y a las demás estaciones. Allí unes piezas, mangos y refuerzos para hacer armas, armaduras y herramientas.', Haz tu primer equipo y vuelve a enseñármelo.]
+      objetivo: {tipo: CONFIRMAR}
+      recordatorio: Fabrica algo y habla conmigo.
+  rancho:
+    nombre: Tierra y fogón
+    descripcion: Animales, cultivos, estaciones y platos.
+    icono: WHEAT
+    logro: rancho
+    pasos:
+    - id: rancho_menu
+      titulo: El rancho de la isla
+      npc: brasa
+      pista: Escribe /rancho
+      dialogo: ['No todo es metal. Aquí la comida también es un oficio, y de los buenos. Abre el cuaderno del rancho escribiendo barra rancho.', 'Ahí ves tu nivel de granjero, tus habilidades, tus logros y cómo va la estación del año.']
+      objetivo:
+        tipo: COMANDO
+        valor: [rancho]
+    - id: libreta
+      titulo: La libreta de granjero
+      npc: brasa
+      pista: Escribe /rancho libreta
+      dialogo: ['La libreta es la mejor amiga de quien cría. Escribe rancho libreta y es tuya. Si haces clic derecho a un animal con ella, ves todo de él: hambre, sed, salud, genética.', 'Y si se la enseñas a un cultivo, te cuenta qué necesita para crecer.']
+      objetivo:
+        tipo: COMANDO
+        valor: [rancho libreta]
+    - id: animales
+      titulo: Animales con necesidades
+      npc: brasa
+      pista: Cuida un animal y vuelve con Brasa
+      dialogo: ['Los animales tienen necesidades: comida, agua, refugio y limpieza. Si los descuidas, enferman. Un animal contento da más y mejor.', 'También hay genética y mutaciones, y los animales salvajes atacan hasta que los domas dándoles de comer. Cuida de uno y vuelve.']
+      objetivo: {tipo: CONFIRMAR}
+    - id: cultivos
+      titulo: Sembrar y esperar
+      npc: brasa
+      pista: Siembra algo y vuelve con Brasa
+      dialogo: ['Los cultivos también exigen: agua, temperatura y estación. Riega con la regadera, fertiliza y mira el cielo: las heladas queman las plantas que no están protegidas.', Siembra algo y vuelve conmigo.]
+      objetivo: {tipo: CONFIRMAR}
+    - id: cocina
+      titulo: El fogón del rancho
+      npc: brasa
+      pista: Usa una Cocina de Rancho y vuelve con Brasa
+      dialogo: ['La carne cruda no alimenta a nadie: hay que cocinarla en la Cocina de Rancho. Colócala, haz clic derecho, elige la receta y espera.', 'Los platos se echan a perder con el tiempo, así que cómelos pronto, o guárdalos en una nevera.']
+      objetivo: {tipo: CONFIRMAR}
+  mascotas:
+    nombre: Compañeros de viaje
+    descripcion: Dragones, lobos, elefantes y barcos.
+    icono: SADDLE
+    logro: mascotas
+    pasos:
+    - id: mascotas_intro
+      titulo: Compañeros
+      npc: brasa
+      pista: Escucha a Brasa
+      dialogo: ['Nadie cruza el mundo solo si es listo. Hay cuatro tipos de compañeros: el dragón, el lobo de guerra, el elefante de carga y el barco de guerra.', 'El lobo, el elefante y el barco se consiguen con un contrato. El dragón, en cambio, nace de un huevo, y esos huevos solo los sueltan los dragones salvajes, con muy poca suerte.']
+      objetivo: {tipo: NINGUNO}
+    - id: mascota_cmd
+      titulo: Llamar a tu compañero
+      npc: brasa
+      pista: Escribe /mascota
+      dialogo: ['Con barra mascota gestionas a tu compañero: lo invocas, lo guardas, ves lo que sabe hacer. Pruébalo.']
+      objetivo:
+        tipo: COMANDO
+        valor: [mascota, mascotas, pet]
+    - id: dragones
+      titulo: Criar un dragón
+      npc: brasa
+      pista: Escucha a Brasa
+      dialogo: ['Un dragón nace pequeño y crece por etapas. Para alimentarlo necesitas Carne de Dragón, que sueltan los dragones salvajes.', 'Cuando sea adulto, será enorme y podrás montarlo. Los salvajes vuelan en círculos sobre su zona: no vayas solo.']
+      objetivo: {tipo: NINGUNO}
+    - id: ir_valdor
+      titulo: El archivista
+      npc: brasa
+      pista: Acércate a Valdor, el archivista
+      dialogo: ['Ya sabes trabajar y criar. Te falta saber lo que mueve el reino: las misiones y los gremios. Ve con Valdor, el archivista, en la casa de los libros.']
+      objetivo: {tipo: CERCA_NPC, npc: valdor, radio: 5}
+  misiones:
+    nombre: Las palabras del archivista
+    descripcion: Cómo hablar con la gente y cumplir misiones.
+    icono: WRITABLE_BOOK
+    logro: misiones
+    pasos:
+    - id: valdor_hola
+      titulo: Los libros de Valdor
+      npc: valdor
+      pista: Habla con Valdor
+      dialogo: ['Así que Brasa te manda. Yo soy Valdor, archivista del reino. Todo lo que ocurre en estas tierras pasa tarde o temprano por mis libros.']
+      objetivo: {tipo: NINGUNO}
+    - id: misiones_npc
+      titulo: Escuchar a la gente
+      npc: valdor
+      pista: Habla con cualquier NPC con misión
+      dialogo: ['La gente con una tarea para ti lo deja ver. Haz clic derecho sobre ellos y escucha con atención: lo que dicen importa.', 'Cuando terminan de hablar, te ofrecen temas de conversación. Elígelos con las teclas del uno al cinco, o con el clic. Cada tema solo da recompensa la primera vez.']
+      objetivo: {tipo: NINGUNO}
+    - id: misiones_diario
+      titulo: Tus asuntos pendientes
+      npc: valdor
+      pista: Abre /diario y revisa tus misiones
+      dialogo: ['Tus misiones son tuyas, de la vida que estás viviendo. Otra vida tuya tendrá las suyas aparte. Cuando dudes, consulta tu diario.']
+      objetivo:
+        tipo: COMANDO
+        valor: [diario, misiones]
+  gremios:
+    nombre: Banderas y territorios
+    descripcion: Banco, territorios, asedios y tecnologías.
+    icono: SHIELD
+    logro: gremios
+    pasos:
+    - id: gremio_menu
+      titulo: Las banderas del reino
+      npc: valdor
+      pista: Escribe /gremio
+      dialogo: ['Ningún héroe llega lejos solo. Los gremios son grupos con banco común, territorios y rangos. Abre su menú escribiendo barra gremio.']
+      objetivo:
+        tipo: COMANDO
+        valor: [gremio]
+    - id: gremio_crear
+      titulo: Fundar o unirse
+      npc: valdor
+      pista: Escucha a Valdor
+      dialogo: ['Para fundar un gremio necesitas permiso del reino y elegir un territorio. También puedes esperar a que te inviten, o pedir entrada en uno que ya exista.', 'Dentro hay rangos, banco, chat propio y mejoras. Quien lo dirige decide cuánto cobra de impuestos.']
+      objetivo: {tipo: NINGUNO}
+    - id: gremio_mapa
+      titulo: El mapa del reino
+      npc: valdor
+      pista: Escribe /gremio mapa
+      dialogo: ['Mira el mapa del reino escribiendo barra gremio mapa. Cada territorio es un pueblo que crece: de pueblo a fortaleza, y de fortaleza a reino.', 'Y si lo quieres ver desde el navegador, escribe gremio mapaweb.']
+      objetivo:
+        tipo: COMANDO
+        valor: [gremio mapa, gremio mapaweb]
+    - id: asedios
+      titulo: Cuando llega la guerra
+      npc: valdor
+      pista: Escucha a Valdor
+      dialogo: ['A veces los gremios van a la guerra. Se declara un asedio con aviso previo, y los atacantes deben romper el Nodo del territorio antes de que se acabe el tiempo.', 'Los cañones y las catapultas necesitan munición. Si el defensor aguanta, el daño se queda y se repara hablando con el Maestro de Obras.']
+      objetivo: {tipo: NINGUNO}
+    - id: tecnologias
+      titulo: Saber es poder
+      npc: valdor
+      pista: Escribe /gremio tecnologias
+      dialogo: [Un gremio también investiga. Hay un árbol enorme de tecnologías que mejoran el territorio. Échale un vistazo escribiendo gremio tecnologías.]
+      objetivo:
+        tipo: COMANDO
+        valor: [gremio tecnologias, gremio tecnologia, gremio tech, gremio tec]
+    - id: temporadas
+      titulo: Los mejores del año
+      npc: valdor
+      pista: Escribe /gremio temporada
+      dialogo: ['Cada semana se premia al mejor jugador y al mejor gremio, y cada cierto tiempo termina una temporada con premios grandes. Mira cómo vas escribiendo gremio temporada.']
+      objetivo:
+        tipo: COMANDO
+        valor: [gremio temporada, gremio temporadas, gremio mvp, gremio semana]
+  mundo:
+    nombre: Lo que acecha fuera
+    descripcion: Dragones, jefes, eventos y estaciones.
+    icono: DRAGON_HEAD
+    logro: mundo
+    pasos:
+    - id: peligros
+      titulo: Lo que acecha
+      npc: valdor
+      pista: Escucha a Valdor
+      dialogo: ['Fuera de los pueblos, el mundo muerde. Hay zonas de dragones salvajes, con sus crías y sus gigantes, y jefes que guardan tesoros.', 'Lleva buena armadura, lleva comida y, mejor aún, ve acompañado. Los dragones aparecen cerca de quien entra en su zona.']
+      objetivo: {tipo: NINGUNO}
+    - id: eventos
+      titulo: Noticias del reino
+      npc: valdor
+      pista: Escucha a Valdor
+      dialogo: ['De vez en cuando se anuncian eventos: el rey de la colina, donde gana quien aguanta más tiempo en la zona, o un jefe con botín para quien más daño le haga.', 'Los avisos salen en el chat, y si el reino tiene Discord, también allí.']
+      objetivo: {tipo: NINGUNO}
+    - id: estaciones
+      titulo: El paso del año
+      npc: valdor
+      pista: Escucha a Valdor
+      dialogo: ['El año tiene estaciones, y cada una trae lo suyo: calor, frío, sequías, inundaciones y hasta plagas de langostas.', 'Mira el panel del lateral: te dice la estación, el día, la temperatura y la hora.']
+      objetivo: {tipo: NINGUNO}
+    - id: ir_alba
+      titulo: De vuelta con Alba
+      npc: valdor
+      pista: Vuelve con Alba
+      dialogo: ['Has aprendido más que muchos en toda una vida. Vuelve con Alba, que tiene algo preparado para ti.']
+      objetivo: {tipo: CERCA_NPC, npc: alba, radio: 5}
+  final:
+    nombre: La travesía
+    descripcion: El barco te espera.
+    icono: NETHER_STAR
+    logro: final
+    pasos:
+    - id: despedida
+      titulo: La travesía
+      npc: alba
+      pista: Habla con Alba
+      dialogo: ['Lo lograste. Ya sabes de oficios, de compañeros, de misiones y de gremios: estás listo para Aetheria.', 'El barco te espera en el muelle. Te llevará hasta Aetheria, y allí elegirás con qué vida empezar, porque allí cada vida escribe su propia historia.', 'Que los caminos te sean favorables, viajero.']
+      objetivo: {tipo: NINGUNO}

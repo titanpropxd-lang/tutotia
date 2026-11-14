@@ -1,0 +1,54 @@
+# AetheriaTutorial - ajustes generales (el contenido esta en guia.yml)
+prefijo: "§6✦ §f"
+color-nombre: "§e"
+usar-aetherianpc: true        # true = dialogos con la caja y las voces de AetheriaNPC (>= 2.8.0)
+barra: true                   # barra de arriba con el capitulo y el objetivo
+flecha: true                  # flecha + distancia en la barra de accion
+particulas: true              # rastro de particulas hacia el objetivo
+logros: true                  # concede los logros del datapack aetheria_tutorial
+jugadores-pueden-saltar: false
+despedida: "Ya lo sabes todo, viajero. Que los caminos te sean favorables."
+lejos: "Ahora te toca hablar con {npc}. Sigue la flecha."
+recordatorio: "Aún te falta: {pista}"
+# Comandos de consola al terminar cada capitulo / toda la guia ({jugador}, {capitulo}). Ejemplos:
+recompensa-capitulo:        # (el jugador aun no tiene personaje: ponlas simples o vacias)
+  []
+recompensa-final:           # se dan al PRIMER personaje, justo al entrar al mundo (antes de la intro)
+  - "experience add {jugador} 100 points"
+  # - "give {jugador} diamond 5"
+  # - "gremioxp dar {jugador} 100"
+
+# ============================================================================
+#  FLUJO: mundo de tutorial -> barco -> elegir personaje -> intro cinematica
+# ============================================================================
+isla:
+  auto-construir: true            # el plugin crea la isla solo al arrancar (si no existe). false = usar /tutorial construir a mano
+  radio: 75                      # tamaño de la isla de /tutorial construir (40-160). 75 = ~150 bloques de ancho; casas a ~46 del centro
+mundo:
+  proteger-jugadores: true     # en la isla nadie puede pegar, robar (cofres, suelo, marcos), lanzar cosas ni teletransportarse con perlas
+  activo: true
+  nombre: "aetheria_tutorial"   # se crea solo (mundo vacio). Luego /tutorial construir hace la isla
+  crear: true
+  hora: 6000                    # siempre mediodia
+espera-multichar-seg: 604800    # MultiChar espera la primera vez este tiempo (el tutorial manda). Pon lo mismo en MultiChar/config.yml first-join.wait-seconds
+comandos-permitidos: [guia, viaje, dialogo, dlg, tutorial]     # comandos que SI se pueden usar en el tutorial (los de la guia cuentan como demostracion)
+demo-comando: "§7(Demostración) Así usarías §e/{cmd}§7 cuando tengas tu personaje. ¡Cuenta como hecho!"
+comando-bloqueado: "§7No sabes cómo hacer eso todavía…"
+
+barco:
+  tipo: OAK_BOAT                # OAK_BOAT, SPRUCE_BOAT, CHERRY_BOAT...
+  velocidad: 5.5                # bloques por segundo
+  hora: 12600                   # hora que ve el jugador durante el viaje (atardecer)
+  textos:                       # "fraccion del viaje|titulo|subtitulo"
+    - "0.02|§6⚓ Zarpando|§7Dejas atrás la Isla Alborada"
+    - "0.40|§eAetheria|§7El reino te espera al otro lado del mar"
+    - "0.75|§fCasi llegamos…|§7Prepárate para elegir tu destino"
+
+# La intro cinematica (datapack Aetheria_Intro) salta SOLO cuando un personaje NUEVO entra al mundo por primera vez.
+intro:
+  activa: true
+  retraso-ticks: 40
+  comandos:
+    - "tag {jugador} remove aeth.seen"
+    - "tag {jugador} remove aeth.kit"
+    - "execute as {jugador} at {jugador} run function aetheria:start"

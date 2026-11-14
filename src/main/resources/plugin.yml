@@ -1,0 +1,18 @@
+name: AetheriaTutorial
+version: 1.1.0
+main: es.xsinex.tutorial.TutorialPlugin
+api-version: '1.21'
+author: xsinex
+softdepend: [AetheriaNPC, MultiChar, Citizens]
+description: Prologo jugable de Aetheria en un mundo aparte (isla + 3 NPCs con voz), viaje en barco al terminar, y lanza la intro cinematica al entrar el personaje nuevo.
+commands:
+  guia:
+    aliases: [viaje]
+    description: Tu rumbo en la isla
+    usage: /guia [paso|barra|saltar]
+  tutorial:
+    description: Administra el tutorial
+    usage: /tutorial <construir|mundo|barco|probar|intro|npc|recargar|saltar|reiniciar|ir|estado>
+permissions:
+  tutorial.admin:
+    default: op
