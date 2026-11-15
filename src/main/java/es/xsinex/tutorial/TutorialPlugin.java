@@ -48,6 +48,8 @@ import org.bukkit.plugin.java.JavaPlugin;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -109,6 +111,7 @@ public final class TutorialPlugin extends JavaPlugin implements Listener, Comman
     @Override
     public void onDisable() {
         guardar();
+        try { if (mundo != null) mundo.rec.restaurarTodo(); } catch (Throwable ignored) { }
         for (BossBar b : barras.values()) b.removeAll();
         barras.clear();
     }
@@ -119,6 +122,7 @@ public final class TutorialPlugin extends JavaPlugin implements Listener, Comman
         prog = YamlConfiguration.loadConfiguration(progFile);
         npcData = YamlConfiguration.loadConfiguration(npcFile);
         est.clear();
+        for (Guia.NpcDef nd : guia.npcs.values()) { String pc = npcData.getString("npc." + nd.id + ".citizens", ""); if (!pc.isEmpty() && nd.citizens.isEmpty()) nd.citizens = pc; }
         hayDialogos = Bukkit.getPluginManager().getPlugin("AetheriaNPC") != null && getConfig().getBoolean("usar-aetherianpc", true);
     }
 
@@ -267,6 +271,7 @@ public final class TutorialPlugin extends JavaPlugin implements Listener, Comman
     private void crearNpc(String id, Location l) {
         Guia.NpcDef d = guia.npcs.get(id);
         if (d == null) return;
+        if (getConfig().getBoolean("npcs.usar-citizens", true) && crearNpcCitizens(id, d, l)) return;
         quitarNpc(id);
         Villager v = (Villager) l.getWorld().spawnEntity(l, EntityType.VILLAGER);
         v.setAI(false);
@@ -289,9 +294,71 @@ public final class TutorialPlugin extends JavaPlugin implements Listener, Comman
 
     void colocarNpc(String id, Location l) { crearNpc(id, l); }
 
+    // ------------------------------------------------------------------ NPCs de Citizens (se crean solos; sin dependencia en compilacion)
+    private Object citizensReg() throws Exception {
+        if (Bukkit.getPluginManager().getPlugin("Citizens") == null) return null;
+        return Class.forName("net.citizensnpcs.api.CitizensAPI").getMethod("getNPCRegistry").invoke(null);
+    }
+
+    private Object citizensGet(String cid) {
+        try {
+            Object reg = citizensReg();
+            if (reg == null || cid == null || cid.isEmpty()) return null;
+            return Class.forName("net.citizensnpcs.api.npc.NPCRegistry").getMethod("getById", int.class).invoke(reg, Integer.parseInt(cid));
+        } catch (Throwable ex) { return null; }
+    }
+
+    /** Crea (o recrea) el NPC de Citizens de la guia en l. Devuelve false si Citizens no esta (entonces se usa el aldeano propio). */
+    private boolean crearNpcCitizens(String id, Guia.NpcDef d, Location l) {
+        try {
+            Object reg = citizensReg();
+            if (reg == null) return false;
+            Class<?> npcC = Class.forName("net.citizensnpcs.api.npc.NPC");
+            Class<?> regC = Class.forName("net.citizensnpcs.api.npc.NPCRegistry");
+            quitarNpc(id);
+            Object old = citizensGet(npcData.getString("npc." + id + ".citizens", ""));
+            if (old != null) npcC.getMethod("destroy").invoke(old);
+            Object npc = regC.getMethod("createNPC", EntityType.class, String.class).invoke(reg, EntityType.PLAYER, getConfig().getString("color-nombre", "§e") + d.nombre);
+            try { npcC.getMethod("setProtected", boolean.class).invoke(npc, true); } catch (Throwable ignored) { }
+            try {
+                Object look = npcC.getMethod("getOrAddTrait", Class.class).invoke(npc, Class.forName("net.citizensnpcs.trait.LookClose"));
+                look.getClass().getMethod("lookClose", boolean.class).invoke(look, true);
+            } catch (Throwable ignored) { }
+            String skin = getConfig().getString("npcs.skins." + id, "");
+            if (!skin.isEmpty()) {
+                try {
+                    Object st = npcC.getMethod("getOrAddTrait", Class.class).invoke(npc, Class.forName("net.citizensnpcs.trait.SkinTrait"));
+                    st.getClass().getMethod("setSkinName", String.class).invoke(st, skin);
+                } catch (Throwable ex) { getLogger().warning("skin de " + id + ": " + ex); }
+            }
+            npcC.getMethod("spawn", Location.class).invoke(npc, l);
+            int cid = (Integer) npcC.getMethod("getId").invoke(npc);
+            d.citizens = String.valueOf(cid);
+            npcData.set("npc." + id + ".citizens", String.valueOf(cid));
+            npcData.set("npc." + id + ".mundo", l.getWorld().getName());
+            npcData.set("npc." + id + ".x", l.getX());
+            npcData.set("npc." + id + ".y", l.getY());
+            npcData.set("npc." + id + ".z", l.getZ());
+            npcData.set("npc." + id + ".yaw", (double) l.getYaw());
+            guardar();
+            getLogger().info("NPC de Citizens '" + d.nombre + "' creado (id " + cid + ").");
+            return true;
+        } catch (Throwable ex) { getLogger().warning("Citizens: no pude crear a " + id + ": " + ex); return false; }
+    }
+
+
     private void repararNpcs() {
         for (Guia.NpcDef d : guia.npcs.values()) {
-            if (!d.citizens.isEmpty()) continue;
+            String propio = npcData.getString("npc." + d.id + ".citizens", "");
+            if (!propio.isEmpty() && d.citizens.isEmpty()) d.citizens = propio;
+            if (!d.citizens.isEmpty()) {
+                if (propio.isEmpty() || citizensGet(propio) != null || Bukkit.getPluginManager().getPlugin("Citizens") == null) continue;   // el nuestro existe
+                World cw = Bukkit.getWorld(npcData.getString("npc." + d.id + ".mundo", ""));
+                if (cw == null) continue;
+                Location cl = new Location(cw, npcData.getDouble("npc." + d.id + ".x"), npcData.getDouble("npc." + d.id + ".y"), npcData.getDouble("npc." + d.id + ".z"), (float) npcData.getDouble("npc." + d.id + ".yaw"), 0f);
+                if (cw.isChunkLoaded(cl.getBlockX() >> 4, cl.getBlockZ() >> 4)) crearNpc(d.id, cl);
+                continue;
+            }
             Location l = npcLoc(d.id);
             if (l == null) continue;
             boolean hay = false;
@@ -337,6 +404,7 @@ public final class TutorialPlugin extends JavaPlugin implements Listener, Comman
                 e2.explicado = true;
                 e2.cont = 0;
                 e2.desde = System.currentTimeMillis();
+                for (String cmd : s.preparar) Bukkit.dispatchCommand(Bukkit.getConsoleSender(), cmd.replace("{jugador}", p.getName()));
                 if (s.tipo.equals("NINGUNO")) completar(p, s); else avisar(p, s);
             });
             return;
@@ -521,13 +589,44 @@ public final class TutorialPlugin extends JavaPlugin implements Listener, Comman
         if (getConfig().getStringList("comandos-permitidos").contains(base)) return;
         Est e = est(p);
         Guia.Paso s = paso(e);
-        ev.setCancelled(true);
         if (activo(e, s) && s.tipo.equals("COMANDO") && coincide(s, m)) {
-            p.sendMessage(c(getConfig().getString("demo-comando", "§7(Demostración) Así usarías §e/{cmd}§7 cuando tengas tu personaje. ¡Cuenta como hecho!").replace("{cmd}", m)));
-            progreso(p, "COMANDO", m);
+            if (!getConfig().getBoolean("comandos-reales", true)) {
+                ev.setCancelled(true);
+                p.sendMessage(c(getConfig().getString("demo-comando", "§7(Demostración) Así usarías §e/{cmd}§7 cuando tengas tu personaje. ¡Cuenta como hecho!").replace("{cmd}", m)));
+                progreso(p, "COMANDO", m);
+            }
+            // con comandos-reales el comando se ejecuta de verdad (abre su menú) y lo cuenta onCmd (MONITOR)
         } else {
+            ev.setCancelled(true);
             p.sendMessage(c(getConfig().getString("comando-bloqueado", "§7No sabes cómo hacer eso todavía…")));
         }
+    }
+
+    void estacionUsada(Player p, String st) { progreso(p, "ESTACION", st); }
+
+    private final Set<UUID> esperandoMenu = new HashSet<>();
+
+    /** El comando se ejecuta de verdad: deja que el jugador mire el menú; el paso se cierra al cerrarlo (o tras unos segundos). */
+    private void completarTrasMenu(Player p, Guia.Paso s) {
+        final UUID u = p.getUniqueId();
+        if (!esperandoMenu.add(u)) return;
+        final long max = Math.max(20, getConfig().getInt("menu.espera-maxima-seg", 25)) * 20L;
+        new org.bukkit.scheduler.BukkitRunnable() {
+            long t = 0; boolean abierto = false;
+            @Override public void run() {
+                Player q = Bukkit.getPlayer(u);
+                if (q == null || !q.isOnline() || paso(est(q)) != s) { esperandoMenu.remove(u); cancel(); return; }
+                t += 10;
+                boolean menu = q.getOpenInventory().getTopInventory().getType() != org.bukkit.event.inventory.InventoryType.CRAFTING;
+                if (menu) abierto = true;
+                boolean listo = abierto ? !menu : t >= getConfig().getInt("menu.espera-sin-menu-ticks", 30);
+                if (listo || t >= max) {
+                    esperandoMenu.remove(u); cancel();
+                    Bukkit.getScheduler().runTaskLater(TutorialPlugin.this, () -> { Player r = Bukkit.getPlayer(u); if (r != null && paso(est(r)) == s) completar(r, s); },
+                        getConfig().getInt("menu.pausa-al-cerrar-ticks", 15));
+                }
+            }
+        }.runTaskTimer(this, 10L, 10L);
     }
 
     private void logro(Player p, String id) {
@@ -556,7 +655,9 @@ public final class TutorialPlugin extends JavaPlugin implements Listener, Comman
         }
         if (!ok) return;
         e.cont++;
-        if (e.cont >= Math.max(1, s.obj.getInt("cantidad", 1))) completar(p, s);
+        if (e.cont >= Math.max(1, s.obj.getInt("cantidad", 1))) {
+            if (tipo.equals("COMANDO") && getConfig().getBoolean("comandos-reales", true)) completarTrasMenu(p, s); else completar(p, s);
+        }
         else p.sendActionBar(c("§e" + s.pista + " §7(" + e.cont + "/" + s.obj.getInt("cantidad", 1) + ")"));
     }
 
@@ -702,6 +803,7 @@ public final class TutorialPlugin extends JavaPlugin implements Listener, Comman
 
     private Location destino(Est e, Guia.Paso s) {
         if (!e.explicado || s.tipo.equals("CONFIRMAR") || s.obj == null) return npcLoc(s.npc);
+        if (s.obj.isString("zona") && mundo != null) { Location z = mundo.rec.centro(s.obj.getString("zona")); if (z != null) return z; }
         if (s.tipo.equals("CERCA_NPC")) return npcLoc(s.obj.getString("npc", s.npc));
         if (s.tipo.equals("AREA")) {
             World w = Bukkit.getWorld(s.obj.getString("mundo", "world"));
@@ -727,6 +829,29 @@ public final class TutorialPlugin extends JavaPlugin implements Listener, Comman
                     have += it.getAmount();
                 }
                 if (have >= need) completar(p, s);
+                break;
+            }
+            case "FORJA": {
+                List<String> ids = s.obj.getStringList("ids");
+                int need = Math.max(1, s.obj.getInt("cantidad", 1));
+                org.bukkit.NamespacedKey kk = NamespacedKey.fromString(getConfig().getString("forja-clave", "forja:rz_item"));
+                if (ids.isEmpty() || kk == null) break;
+                Map<String, Integer> tiene = new HashMap<>();
+                for (ItemStack it : p.getInventory().getContents()) {
+                    if (it == null || it.getType() == Material.AIR || !it.hasItemMeta()) continue;
+                    String idf = it.getItemMeta().getPersistentDataContainer().get(kk, org.bukkit.persistence.PersistentDataType.STRING);
+                    if (idf != null) tiene.merge(idf.toLowerCase(Locale.ROOT), it.getAmount(), Integer::sum);
+                }
+                for (ItemStack it : p.getInventory().getArmorContents()) {
+                    if (it == null || it.getType() == Material.AIR || !it.hasItemMeta()) continue;
+                    String idf = it.getItemMeta().getPersistentDataContainer().get(kk, org.bukkit.persistence.PersistentDataType.STRING);
+                    if (idf != null) tiene.merge(idf.toLowerCase(Locale.ROOT), it.getAmount(), Integer::sum);
+                }
+                int ok = 0;
+                for (String id : ids) if (tiene.getOrDefault(id.toLowerCase(Locale.ROOT), 0) >= need) ok++;
+                boolean todos = s.obj.getBoolean("todos", true);
+                if (todos ? ok == ids.size() : ok > 0) completar(p, s);
+                else if (todos && ok != e.cont) { e.cont = ok; p.sendActionBar(c("§e" + s.pista + " §7(" + ok + "/" + ids.size() + ")")); }
                 break;
             }
             case "AREA":

@@ -52,3 +52,68 @@ intro:
     - "tag {jugador} remove aeth.seen"
     - "tag {jugador} remove aeth.kit"
     - "execute as {jugador} at {jugador} run function aetheria:start"
+
+# ---------------------------------------------------------------- MAPA DEL PUEBLO (Medieval village)
+# Si en la carpeta del servidor existe el mundo 'aetheria_tutorial' (con su carpeta region/), el plugin lo usa tal cual
+# y NO construye ninguna isla. Todo lo de abajo se aplica una vez; si cambias algo, sube 'version' y reinicia.
+mapa:
+  version: 1
+  spawn: [100.5, 75, -136.5, 300]          # x, y, z, yaw  (plaza del pueblo, mirando a Alba)
+  npcs:
+    alba:   [110.5, 75, -130.5, 120]       # plaza, junto a la fuente
+    brasa:  [125.5, 75, -144.5, 180]       # herreria (norte de la plaza), de cara al yunque
+    valdor: [60.5, 74, -151.5, 180]        # biblioteca (oeste, cruzando el rio)
+  borde: {x: 28, z: -88, tam: 1100}        # limite del mundo: toda la isla y algo de mar
+  ruta:                                    # el barco baja por el rio desde el pueblo hasta el estanque del sur
+    - "76.5,68.15,-136.5"
+    - "71.5,68.15,-118.5"
+    - "72.5,68.15,-100.5"
+    - "72.5,68.15,-82.5"
+    - "75.5,68.15,-64.5"
+    - "76.5,68.15,-46.5"
+    - "82.5,68.15,-28.5"
+    - "87.5,68.15,-10.5"
+    - "94.5,68.15,8.5"
+    - "98.5,62.15,26.5"
+    - "100.5,62.15,44.5"
+    - "104.5,62.15,62.5"
+    - "102.5,62.15,80.5"
+    - "91.5,62.15,98.5"
+    - "87.5,62.15,116.5"
+    - "78.5,62.15,134.5"
+    - "72.5,62.15,152.5"
+    - "64.5,62.15,170.5"
+    - "64.5,62.15,188.5"
+    - "66.5,62.15,206.5"
+
+npcs:
+  usar-citizens: true        # los 3 NPCs son de Citizens y se crean solos (si Citizens no esta, se usan aldeanos)
+  skins:                     # nombre de jugador de Minecraft cuya skin llevara cada NPC (vacio = skin por defecto)
+    alba: ""
+    brasa: ""
+    valdor: ""
+
+# ---------------------------------------------------------------- v8: tareas reales
+# Los comandos que pide un objetivo (/oficios, /rancho, /gremio...) SE EJECUTAN DE VERDAD y abren su menu.
+# El paso se cierra al cerrar el menu (o tras menu.espera-maxima-seg). Pon false para volver al modo "demo".
+comandos-reales: true
+menu:
+  espera-sin-menu-ticks: 30      # si el comando no abre menu, cierra el paso a los 1,5 s
+  espera-maxima-seg: 25          # tope esperando a que cierren el menu
+  pausa-al-cerrar-ticks: 15
+forja-clave: "forja:rz_item"     # clave PDC con el id de los objetos de Forja (objetivo FORJA)
+
+# Zonas de recursos (se construyen solas al arrancar, dentro del mapa del pueblo).
+# Solo ahi se puede picar/talar/cosechar/plantar; los drops van directo al inventario y todo se regenera.
+recursos:
+  activo: true
+  regeneracion: 20               # segundos hasta que reaparece mineral/arbol/cosecha
+  regeneracion-cultivos: 60      # lo que plantan los jugadores desaparece tras esto
+  comando-estacion: "forja abrir {jugador} {estacion}"
+  # estaciones del taller, "bloque:estacion de Forja" (vacio = las de por defecto)
+  estaciones: []
+  zonas:
+    huerta: {tipo: huerta, x: 126, z: -170, y: 74, w: 10, d: 8}
+    taller: {tipo: taller, x: 130, z: -186, y: 75, w: 10, d: 8}
+    mina:   {tipo: mina,   x: 142, z: -184, y: 75, w: 10, d: 8}
+    bosque: {tipo: bosque, x: 136, z: -202, y: 77, w: 10, d: 8}

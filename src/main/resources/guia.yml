@@ -98,16 +98,18 @@ capitulos:
     - id: minerales
       titulo: Metal en bruto
       npc: brasa
-      pista: Consigue metal y vuelve con Brasa
+      pista: Pica 4 minerales en la mina (la flecha te guía)
       dialogo: ['Todo empieza con el metal. Busca mineral, fúndelo y saca lingotes. Cobre y bronce son los más amables; el acero, la plata y el mithril piden mucho más.', 'Cada metal tiene su fundición, y los mejores solo se rinden en un alto horno. Consigue algo de metal y vuelve conmigo.']
-      objetivo: {tipo: CONFIRMAR}
-      recordatorio: ¿Ya tienes metal? Habla conmigo para seguir.
+      objetivo: {tipo: ROMPER, valor: ORE, cantidad: 4, zona: mina}
+      preparar:
+        - "minecraft:give {jugador} iron_pickaxe"
+      recordatorio: Ve a la mina y pica 4 minerales; se regeneran solos.
     - id: fundicion
       titulo: La Fundición
       npc: brasa
-      pista: Coloca una Fundición, échale combustible y metal
+      pista: Abre la Fundición del taller (clic derecho)
       dialogo: ['La Fundición es tu primera estación. Colócala, échale combustible, como carbón, y luego los lingotes. Con el fuego encendido, el metal se derrite poco a poco.', 'Cuando esté líquido, lo viertes en un molde. Fíjate en la llama: ella te dice cómo va.']
-      objetivo: {tipo: CONFIRMAR}
+      objetivo: {tipo: ESTACION, valor: forja, zona: taller}
     - id: moldes
       titulo: Dar forma al metal
       npc: brasa
@@ -123,10 +125,14 @@ capitulos:
     - id: yunque
       titulo: Tu primer equipo
       npc: brasa
-      pista: Fabrica algo en el yunque y vuelve con Brasa
+      pista: Forja un set de armadura completo en la Armería del taller
       dialogo: ['Con las piezas listas, ve al yunque y a las demás estaciones. Allí unes piezas, mangos y refuerzos para hacer armas, armaduras y herramientas.', Haz tu primer equipo y vuelve a enseñármelo.]
-      objetivo: {tipo: CONFIRMAR}
-      recordatorio: Fabrica algo y habla conmigo.
+      objetivo: {tipo: FORJA, ids: [rpg_a6_head, rpg_a6_chest, rpg_a6_legs, rpg_a6_feet], todos: true, zona: taller}
+      preparar:
+        - "forja nivel {jugador} armeria 10"
+        - "forja dar {jugador} cuero_curtido 20"
+        - "forja dar {jugador} hilo 8"
+      recordatorio: Usa la mesa de herrero (Armería) del taller y fabrica las 4 piezas.
   rancho:
     nombre: Tierra y fogón
     descripcion: Animales, cultivos, estaciones y platos.
@@ -158,9 +164,12 @@ capitulos:
     - id: cultivos
       titulo: Sembrar y esperar
       npc: brasa
-      pista: Siembra algo y vuelve con Brasa
+      pista: Planta 4 cultivos en la huerta
       dialogo: ['Los cultivos también exigen: agua, temperatura y estación. Riega con la regadera, fertiliza y mira el cielo: las heladas queman las plantas que no están protegidas.', Siembra algo y vuelve conmigo.]
-      objetivo: {tipo: CONFIRMAR}
+      objetivo: {tipo: COLOCAR, valor: WHEAT, cantidad: 4, zona: huerta}
+      preparar:
+        - "minecraft:give {jugador} wheat_seeds 8"
+        - "minecraft:give {jugador} iron_hoe"
     - id: cocina
       titulo: El fogón del rancho
       npc: brasa

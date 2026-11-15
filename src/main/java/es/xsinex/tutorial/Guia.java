@@ -17,10 +17,11 @@ final class Guia {
 
     static final class Paso {
         String id, titulo, npc, pista, recordatorio;
-        String tipo = "NINGUNO";                  // NINGUNO, CONFIRMAR, COMANDO, ITEM, AREA, CERCA_NPC, MATAR, ROMPER, COLOCAR, USAR_BLOQUE, PERSONAJE, ESPERAR
+        String tipo = "NINGUNO";                  // NINGUNO, CONFIRMAR, COMANDO, ITEM, AREA, CERCA_NPC, MATAR, ROMPER, COLOCAR, USAR_BLOQUE, PERSONAJE, ESPERAR, FORJA (ids: [ids de Forja], todos)
         ConfigurationSection obj;                 // parámetros del objetivo
         List<String> dialogo = new ArrayList<>();
         List<String> recompensa = new ArrayList<>();
+        List<String> preparar = new ArrayList<>();    // comandos de consola al empezar el objetivo (dar materiales, subir nivel...)
         Cap cap;
         int indice;                               // posición global
     }
@@ -69,6 +70,8 @@ final class Guia {
                 else if (d != null) p.dialogo.add(String.valueOf(d));
                 Object r = m.get("recompensa");
                 if (r instanceof List) for (Object l : (List<?>) r) p.recompensa.add(String.valueOf(l));
+                Object pr = m.get("preparar");
+                if (pr instanceof List) for (Object l : (List<?>) pr) p.preparar.add(String.valueOf(l));
                 Object ob = m.get("objetivo");
                 if (ob instanceof Map) {
                     org.bukkit.configuration.MemoryConfiguration mc = new org.bukkit.configuration.MemoryConfiguration();

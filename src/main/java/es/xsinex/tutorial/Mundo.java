@@ -72,8 +72,11 @@ final class Mundo implements Listener {
     int oceano() { return isla() + 125; }                                                              // radio del mar
     static final int NIVEL = 64;         // altura de la hierba de la isla (el agua llega a 63)
 
+    final Recursos rec;
+
     Mundo(TutorialPlugin pl) {
         this.pl = pl;
+        this.rec = new Recursos(pl, this);
         this.file = new File(pl.getDataFolder(), "mundo.yml");
         this.data = YamlConfiguration.loadConfiguration(file);
         this.kBarco = new NamespacedKey(pl, "barco_tutorial");
@@ -85,10 +88,17 @@ final class Mundo implements Listener {
     // ------------------------------------------------------------------ el mundo
     String nombre() { return pl.getConfig().getString("mundo.nombre", "aetheria_tutorial"); }
 
+    /** true si en la carpeta del servidor ya esta el mapa del pueblo (carpeta del mundo con region/): se usa tal cual, sin construir nada. */
+    boolean mapaPropio() { return new File(Bukkit.getWorldContainer(), nombre() + File.separator + "region").isDirectory(); }
+
     /** Carga (o crea vacío) el mundo del tutorial. Devuelve null si está desactivado. */
     World mundo() {
         if (!pl.getConfig().getBoolean("mundo.activo", true)) return null;
         World w = Bukkit.getWorld(nombre());
+        if (w == null && mapaPropio()) {
+            try { w = new WorldCreator(nombre()).createWorld(); pl.getLogger().info("Mapa del pueblo '" + nombre() + "' cargado."); }
+            catch (Throwable t) { pl.getLogger().warning("No pude cargar el mapa " + nombre() + ": " + t); }
+        }
         if (w == null && pl.getConfig().getBoolean("mundo.crear", true)) {
             try {
                 WorldCreator wc = new WorldCreator(nombre());
@@ -116,8 +126,13 @@ final class Mundo implements Listener {
             w.setTime(pl.getConfig().getLong("mundo.hora", 6000L));
             w.setStorm(false);
             w.setPVP(false);
-            w.getWorldBorder().setCenter(0, 0);
-            w.getWorldBorder().setSize(oceano() * 2 + 40);
+            if (mapaPropio()) {
+                w.getWorldBorder().setCenter(pl.getConfig().getDouble("mapa.borde.x", 28), pl.getConfig().getDouble("mapa.borde.z", -88));
+                w.getWorldBorder().setSize(pl.getConfig().getDouble("mapa.borde.tam", 1100));
+            } else {
+                w.getWorldBorder().setCenter(0, 0);
+                w.getWorldBorder().setSize(oceano() * 2 + 40);
+            }
         } catch (Throwable t) { pl.getLogger().warning("reglas del mundo: " + t); }
     }
 
@@ -126,6 +141,7 @@ final class Mundo implements Listener {
     /** Si la isla no existe (mundo nuevo o carpeta borrada), la construye sola. */
     void autoConstruir() {
         try {
+            if (mapaPropio()) { aplicarMapa(); rec.construir(); return; }
             if (!pl.getConfig().getBoolean("isla.auto-construir", true) || construyendo) return;
             World w = mundo();
             if (w == null) return;
@@ -138,6 +154,32 @@ final class Mundo implements Listener {
             pl.getLogger().info("Construyendo la isla del tutorial automaticamente (radio " + isla() + ")...");
             construir(Bukkit.getConsoleSender(), null);
         } catch (Throwable t) { pl.getLogger().warning("autoConstruir: " + t); }
+    }
+
+    /** Mapa del pueblo: coloca spawn, NPCs (Citizens) y la ruta del barco UNA vez (o cuando sube mapa.version en config). */
+    void aplicarMapa() {
+        World w = mundo();
+        if (w == null) return;
+        int ver = pl.getConfig().getInt("mapa.version", 1);
+        if (data.getInt("mapa-aplicado", 0) == ver) return;
+        try {
+            List<Double> s = pl.getConfig().getDoubleList("mapa.spawn");
+            if (s.size() >= 4) { Location ls = new Location(w, s.get(0), s.get(1), s.get(2), s.get(3).floatValue(), 0f); w.getChunkAt(ls).load(true); fijarSpawn(ls); }
+            for (String id : new String[] { "alba", "brasa", "valdor" }) {
+                List<Double> n = pl.getConfig().getDoubleList("mapa.npcs." + id);
+                if (n.size() >= 4) { Location ln = new Location(w, n.get(0), n.get(1), n.get(2), n.get(3).floatValue(), 0f); w.getChunkAt(ln).load(true); pl.colocarNpc(id, ln); }
+            }
+            List<Location> r = new ArrayList<>();
+            for (String p : pl.getConfig().getStringList("mapa.ruta")) {
+                String[] q = p.split(",");
+                if (q.length >= 3) r.add(new Location(w, Double.parseDouble(q[0].trim()), Double.parseDouble(q[1].trim()), Double.parseDouble(q[2].trim())));
+            }
+            if (r.size() >= 2) guardarRuta(r);
+            data.set("construido", true);
+            data.set("mapa-aplicado", ver);
+            guardar();
+            pl.getLogger().info("Mapa del pueblo listo: spawn, 3 NPCs y ruta del barco (" + r.size() + " puntos).");
+        } catch (Throwable t) { pl.getLogger().warning("aplicarMapa: " + t); }
     }
 
     boolean esDelTutorial(World w) { return w != null && w.getName().equals(nombre()); }
@@ -175,10 +217,30 @@ final class Mundo implements Listener {
     public void hambre(FoodLevelChangeEvent ev) { if (aqui(ev.getEntity())) { ev.setCancelled(true); ((Player) ev.getEntity()).setFoodLevel(20); } }
 
     @EventHandler(ignoreCancelled = true)
-    public void romper(BlockBreakEvent ev) { if (aqui(ev.getPlayer()) && !admin(ev.getPlayer())) ev.setCancelled(true); }
+    public void romper(BlockBreakEvent ev) {
+        if (!aqui(ev.getPlayer()) || admin(ev.getPlayer())) return;
+        if (!rec.romper(ev)) ev.setCancelled(true);
+    }
 
     @EventHandler(ignoreCancelled = true)
-    public void colocar(BlockPlaceEvent ev) { if (aqui(ev.getPlayer()) && !admin(ev.getPlayer())) ev.setCancelled(true); }
+    public void colocar(BlockPlaceEvent ev) {
+        if (!aqui(ev.getPlayer()) || admin(ev.getPlayer())) return;
+        if (!rec.colocar(ev)) ev.setCancelled(true);
+    }
+
+    /** Estaciones del taller: clic derecho abre la estación de Forja (las estaciones reales de Forja se registran en su base de datos, estas son del tutorial). */
+    @EventHandler(priority = EventPriority.LOW, ignoreCancelled = false)
+    public void estacion(PlayerInteractEvent ev) {
+        if (ev.getAction() != org.bukkit.event.block.Action.RIGHT_CLICK_BLOCK || ev.getClickedBlock() == null || ev.getHand() != org.bukkit.inventory.EquipmentSlot.HAND) return;
+        if (!aqui(ev.getPlayer())) return;
+        String st = rec.estacionEn(ev.getClickedBlock().getLocation());
+        if (st == null) return;
+        ev.setCancelled(true);
+        Player p = ev.getPlayer();
+        pl.estacionUsada(p, st);
+        String cmd = pl.getConfig().getString("recursos.comando-estacion", "forja abrir {jugador} {estacion}").replace("{jugador}", p.getName()).replace("{estacion}", st);
+        Bukkit.dispatchCommand(Bukkit.getConsoleSender(), cmd);
+    }
 
     @EventHandler(ignoreCancelled = true)
     public void soltar(PlayerDropItemEvent ev) { if (aqui(ev.getPlayer()) && !admin(ev.getPlayer())) ev.setCancelled(true); }
@@ -469,6 +531,7 @@ final class Mundo implements Listener {
 
     /** Construye la isla poco a poco (varios ticks) para no bloquear el servidor. */
     void construir(CommandSender who, Location centro) {
+        if (mapaPropio()) { who.sendMessage("§eEl tutorial usa el mapa del pueblo que ya está en el servidor: no hay nada que construir. (Para recolocar spawn/NPCs/barco sube mapa.version en config.yml y reinicia.)"); return; }
         if (construyendo) { who.sendMessage("§cYa se está construyendo."); return; }
         World w = mundo();
         if (w == null) { who.sendMessage("§cEl mundo del tutorial está desactivado o no se pudo crear."); return; }
