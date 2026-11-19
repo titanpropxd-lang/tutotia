@@ -67,6 +67,7 @@ public final class TutorialPlugin extends JavaPlugin implements Listener, Comman
         int i;                    // paso actual (posición global)
         boolean explicado;        // el NPC ya contó el paso
         int cont;                 // contador (matar, romper, colocar)
+        boolean listo;            // objetivo hecho, falta volver con el NPC (entregar: true)
         long desde;               // cuándo empezó el paso (ESPERAR)
     }
 
@@ -410,6 +411,16 @@ public final class TutorialPlugin extends JavaPlugin implements Listener, Comman
             return;
         }
         if (s.tipo.equals("CONFIRMAR")) { completar(p, s); return; }
+        if (e.listo) {
+            final Guia.Paso sp = s;
+            decir(p, nombre, getConfig().getString("entrega", "Muy bien. Esto está bien hecho, viajero. Quédatelo, ya es tuyo."), () -> {
+                Est e3 = est(p);
+                if (e3 == null || paso(e3) != sp) return;
+                sp.obj.set("entregar", false);
+                try { completar(p, sp); } finally { sp.obj.set("entregar", true); }
+            });
+            return;
+        }
         String rec = s.recordatorio.isEmpty() ? getConfig().getString("recordatorio", "Aún te falta: {pista}") : s.recordatorio;
         decir(p, nombre, rec.replace("{pista}", s.pista), null);
     }
@@ -469,6 +480,16 @@ public final class TutorialPlugin extends JavaPlugin implements Listener, Comman
     private void completar(Player p, Guia.Paso s) {
         Est e = est(p);
         if (e == null || paso(e) != s) return;
+        if (s.obj != null && s.obj.getBoolean("entregar", false) && !s.tipo.equals("CONFIRMAR")) {
+            if (!e.listo) {
+                e.listo = true;
+                Guia.NpcDef nd = guia.npcs.get(s.npc);
+                p.sendMessage(c(pfx() + "§a✔ ¡Lo conseguiste! §7Vuelve con §e" + (nd == null ? s.npc : nd.nombre) + "§7 para enseñárselo."));
+                p.playSound(p.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.8f, 1.2f);
+            }
+            return;
+        }
+        e.listo = false;
         e.i = s.indice + 1;
         e.explicado = false;
         e.cont = 0;
@@ -802,7 +823,7 @@ public final class TutorialPlugin extends JavaPlugin implements Listener, Comman
     }
 
     private Location destino(Est e, Guia.Paso s) {
-        if (!e.explicado || s.tipo.equals("CONFIRMAR") || s.obj == null) return npcLoc(s.npc);
+        if (!e.explicado || e.listo || s.tipo.equals("CONFIRMAR") || s.obj == null) return npcLoc(s.npc);
         if (s.obj.isString("zona") && mundo != null) { Location z = mundo.rec.centro(s.obj.getString("zona")); if (z != null) return z; }
         if (s.tipo.equals("CERCA_NPC")) return npcLoc(s.obj.getString("npc", s.npc));
         if (s.tipo.equals("AREA")) {
@@ -997,18 +1018,48 @@ public final class TutorialPlugin extends JavaPlugin implements Listener, Comman
             }
             case "barco": {
                 String op = a.length > 1 ? a[1].toLowerCase(Locale.ROOT) : "lista";
-                if (op.equals("punto")) {
-                    if (!(s instanceof Player)) return true;
-                    mundo.anadirPunto(((Player) s).getLocation());
-                    s.sendMessage("§aPunto " + mundo.ruta().size() + " añadido (la ruta va por el agua; ponlos ~10-20 bloques entre sí).");
-                } else if (op.equals("limpiar")) { mundo.limpiarRuta(); s.sendMessage("§aRuta del barco vaciada."); }
-                else if (op.equals("probar")) {
-                    if (!(s instanceof Player)) return true;
-                    final Player pa = (Player) s;
-                    final org.bukkit.GameMode g0 = pa.getGameMode();
-                    mundo.barco(pa, () -> { pa.setGameMode(g0); pa.sendMessage("§7(Fin de la prueba del barco)"); });
-                } else s.sendMessage("§eRuta del barco: §f" + mundo.ruta().size() + " puntos. §7/tutorial barco punto|limpiar|probar");
-                return true;
+                Player pa0 = s instanceof Player ? (Player) s : null;
+                switch (op) {
+                    case "punto": case "añadir": case "anadir":
+                        if (pa0 == null) return true;
+                        mundo.anadirPunto(pa0.getLocation());
+                        s.sendMessage("§aPunto " + mundo.ruta().size() + " añadido donde estás (si hay agua debajo se pega a la superficie). Ponlos cada ~10-20 bloques por el agua. §7/tutorial barco ver");
+                        return true;
+                    case "deshacer": { int n = mundo.ruta().size(); s.sendMessage(mundo.quitarPunto(n) ? "§aQuitado el último punto (" + n + ")." : "§cNo hay puntos."); return true; }
+                    case "quitar": {
+                        if (a.length < 3) { s.sendMessage("§c/tutorial barco quitar <n>"); return true; }
+                        s.sendMessage(mundo.quitarPunto(Integer.parseInt(a[2])) ? "§aPunto quitado." : "§cEse punto no existe."); return true;
+                    }
+                    case "insertar": {
+                        if (pa0 == null || a.length < 3) { s.sendMessage("§c/tutorial barco insertar <n>  §7(lo mete en la posición n, donde estás)"); return true; }
+                        s.sendMessage(mundo.insertarPunto(Integer.parseInt(a[2]), pa0.getLocation()) ? "§aPunto insertado." : "§cPosición no válida."); return true;
+                    }
+                    case "mover": {
+                        if (pa0 == null || a.length < 3) { s.sendMessage("§c/tutorial barco mover <n>  §7(lleva el punto n adonde estás)"); return true; }
+                        s.sendMessage(mundo.moverPunto(Integer.parseInt(a[2]), pa0.getLocation()) ? "§aPunto movido." : "§cEse punto no existe."); return true;
+                    }
+                    case "ir": {
+                        if (pa0 == null || a.length < 3) { s.sendMessage("§c/tutorial barco ir <n>"); return true; }
+                        List<Location> r = mundo.ruta(); int n = Integer.parseInt(a[2]);
+                        if (n < 1 || n > r.size()) { s.sendMessage("§cEse punto no existe."); return true; }
+                        pa0.teleport(r.get(n - 1).clone().add(0, 1, 0)); return true;
+                    }
+                    case "ver": if (pa0 != null) { mundo.verRuta(pa0, 40); s.sendMessage("§aVes la ruta 40 s: palo blanco = punto, verde = tramo."); } return true;
+                    case "limpiar": mundo.limpiarRuta(); s.sendMessage("§aRuta del barco vaciada. Ahora ponla tú con §e/tutorial barco punto§a (el mapa ya no la pisa)."); return true;
+                    case "probar": {
+                        if (pa0 == null) return true;
+                        final org.bukkit.GameMode g0 = pa0.getGameMode();
+                        mundo.barco(pa0, () -> { pa0.setGameMode(g0); pa0.sendMessage("§7(Fin de la prueba del barco)"); });
+                        return true;
+                    }
+                    default: {
+                        List<Location> r = mundo.ruta();
+                        s.sendMessage("§eRuta del barco: §f" + r.size() + " puntos.");
+                        for (int i = 0; i < r.size(); i++) s.sendMessage("§7 " + (i + 1) + ": §f" + r.get(i).getBlockX() + ", " + r.get(i).getBlockY() + ", " + r.get(i).getBlockZ());
+                        s.sendMessage("§7/tutorial barco §fpunto §7| §fdeshacer §7| §fquitar <n> §7| §finsertar <n> §7| §fmover <n> §7| §fir <n> §7| §fver §7| §flimpiar §7| §fprobar");
+                        return true;
+                    }
+                }
             }
             case "intro": {
                 Player t = a.length > 1 ? Bukkit.getPlayerExact(a[1]) : (s instanceof Player ? (Player) s : null);

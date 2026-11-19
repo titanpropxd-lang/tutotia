@@ -98,12 +98,12 @@ capitulos:
     - id: minerales
       titulo: Metal en bruto
       npc: brasa
-      pista: Pica 4 minerales en la mina (la flecha te guía)
+      pista: Pica 4 minerales en la mina y vuelve con Brasa
       dialogo: ['Todo empieza con el metal. Busca mineral, fúndelo y saca lingotes. Cobre y bronce son los más amables; el acero, la plata y el mithril piden mucho más.', 'Cada metal tiene su fundición, y los mejores solo se rinden en un alto horno. Consigue algo de metal y vuelve conmigo.']
-      objetivo: {tipo: ROMPER, valor: ORE, cantidad: 4, zona: mina}
+      objetivo: {tipo: ROMPER, valor: ORE, cantidad: 4, zona: mina, entregar: true}
       preparar:
         - "minecraft:give {jugador} iron_pickaxe"
-      recordatorio: Ve a la mina y pica 4 minerales; se regeneran solos.
+      recordatorio: Pica 4 minerales en la mina y vuelve conmigo.
     - id: fundicion
       titulo: La Fundición
       npc: brasa
@@ -125,14 +125,14 @@ capitulos:
     - id: yunque
       titulo: Tu primer equipo
       npc: brasa
-      pista: Forja un set de armadura completo en la Armería del taller
+      pista: Forja un set de armadura básico en el taller y vuelve con Brasa
       dialogo: ['Con las piezas listas, ve al yunque y a las demás estaciones. Allí unes piezas, mangos y refuerzos para hacer armas, armaduras y herramientas.', Haz tu primer equipo y vuelve a enseñármelo.]
-      objetivo: {tipo: FORJA, ids: [rpg_a6_head, rpg_a6_chest, rpg_a6_legs, rpg_a6_feet], todos: true, zona: taller}
+      objetivo: {tipo: FORJA, ids: [rpg_a6_head, rpg_a6_chest, rpg_a6_legs, rpg_a6_feet], todos: true, zona: taller, entregar: true}
       preparar:
         - "forja nivel {jugador} armeria 10"
         - "forja dar {jugador} cuero_curtido 20"
         - "forja dar {jugador} hilo 8"
-      recordatorio: Usa la mesa de herrero (Armería) del taller y fabrica las 4 piezas.
+      recordatorio: Fabrica las 4 piezas en la mesa de herrero del taller y vuelve conmigo.
   rancho:
     nombre: Tierra y fogón
     descripcion: Animales, cultivos, estaciones y platos.
@@ -164,9 +164,9 @@ capitulos:
     - id: cultivos
       titulo: Sembrar y esperar
       npc: brasa
-      pista: Planta 4 cultivos en la huerta
+      pista: Planta una semilla en la huerta y vuelve con Brasa
       dialogo: ['Los cultivos también exigen: agua, temperatura y estación. Riega con la regadera, fertiliza y mira el cielo: las heladas queman las plantas que no están protegidas.', Siembra algo y vuelve conmigo.]
-      objetivo: {tipo: COLOCAR, valor: WHEAT, cantidad: 4, zona: huerta}
+      objetivo: {tipo: COLOCAR, valor: WHEAT, cantidad: 1, zona: huerta, entregar: true}
       preparar:
         - "minecraft:give {jugador} wheat_seeds 8"
         - "minecraft:give {jugador} iron_hoe"

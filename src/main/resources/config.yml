@@ -101,6 +101,7 @@ menu:
   espera-sin-menu-ticks: 30      # si el comando no abre menu, cierra el paso a los 1,5 s
   espera-maxima-seg: 25          # tope esperando a que cierren el menu
   pausa-al-cerrar-ticks: 15
+entrega: "Muy bien. Esto está bien hecho, viajero. Quédatelo, ya es tuyo."
 forja-clave: "forja:rz_item"     # clave PDC con el id de los objetos de Forja (objetivo FORJA)
 
 # Zonas de recursos (se construyen solas al arrancar, dentro del mapa del pueblo).

@@ -174,7 +174,7 @@ final class Mundo implements Listener {
                 String[] q = p.split(",");
                 if (q.length >= 3) r.add(new Location(w, Double.parseDouble(q[0].trim()), Double.parseDouble(q[1].trim()), Double.parseDouble(q[2].trim())));
             }
-            if (r.size() >= 2) guardarRuta(r);
+            if (r.size() >= 2 && !data.getBoolean("barco.manual", false)) guardarRuta(r);   // si la editaste a mano, no se pisa
             data.set("construido", true);
             data.set("mapa-aplicado", ver);
             guardar();
@@ -377,8 +377,47 @@ final class Mundo implements Listener {
         guardar();
     }
 
-    void anadirPunto(Location l) { List<Location> r = ruta(); r.add(l); guardarRuta(r); }
-    void limpiarRuta() { guardarRuta(new ArrayList<>()); }
+    /** Si hay agua bajo el punto, lo pega a la superficie (+0.15) para que el bote no flote ni se hunda. */
+    private Location ajustarAgua(Location l) {
+        World w = l.getWorld();
+        int bx = l.getBlockX(), bz = l.getBlockZ();
+        for (int y = l.getBlockY() + 1; y >= l.getBlockY() - 8; y--) {
+            Material m = w.getBlockAt(bx, y, bz).getType();
+            if (m == Material.WATER) {
+                int top = y;
+                while (w.getBlockAt(bx, top + 1, bz).getType() == Material.WATER) top++;
+                return new Location(w, l.getX(), top + 0.15, l.getZ());
+            }
+        }
+        return new Location(w, l.getX(), l.getY(), l.getZ());
+    }
+
+    void anadirPunto(Location l) { List<Location> r = ruta(); r.add(ajustarAgua(l)); data.set("barco.manual", true); guardarRuta(r); }
+    /** idx 1-based; devuelve false si no existe. */
+    boolean quitarPunto(int idx) { List<Location> r = ruta(); if (idx < 1 || idx > r.size()) return false; r.remove(idx - 1); data.set("barco.manual", true); guardarRuta(r); return true; }
+    boolean insertarPunto(int idx, Location l) { List<Location> r = ruta(); if (idx < 1 || idx > r.size() + 1) return false; r.add(idx - 1, ajustarAgua(l)); data.set("barco.manual", true); guardarRuta(r); return true; }
+    boolean moverPunto(int idx, Location l) { List<Location> r = ruta(); if (idx < 1 || idx > r.size()) return false; r.set(idx - 1, ajustarAgua(l)); data.set("barco.manual", true); guardarRuta(r); return true; }
+    /** muestra la ruta con particulas unos segundos solo al admin que la pide */
+    void verRuta(final Player p, int seg) {
+        final List<Location> r = ruta();
+        new org.bukkit.scheduler.BukkitRunnable() {
+            int t = 0;
+            @Override public void run() {
+                if (!p.isOnline() || t >= seg * 2) { cancel(); return; }
+                t++;
+                for (int i = 0; i < r.size(); i++) {
+                    Location a = r.get(i);
+                    for (int k = 0; k < 6; k++) p.spawnParticle(org.bukkit.Particle.END_ROD, a.getX(), a.getY() + 0.5 + k * 0.5, a.getZ(), 1, 0, 0, 0, 0);
+                    if (i + 1 < r.size()) {
+                        Location b = r.get(i + 1);
+                        int n = (int) Math.max(2, a.distance(b) / 1.5);
+                        for (int k = 1; k < n; k++) p.spawnParticle(org.bukkit.Particle.HAPPY_VILLAGER, a.getX() + (b.getX() - a.getX()) * k / n, a.getY() + 0.6, a.getZ() + (b.getZ() - a.getZ()) * k / n, 1, 0, 0, 0, 0);
+                    }
+                }
+            }
+        }.runTaskTimer(pl, 0L, 10L);
+    }
+    void limpiarRuta() { data.set("barco.manual", true); guardarRuta(new ArrayList<>()); }
 
     /** Curva suave (Catmull-Rom) por los puntos, muestreada cada ~0,5 bloques. */
     private List<Location> curva(List<Location> p) {
