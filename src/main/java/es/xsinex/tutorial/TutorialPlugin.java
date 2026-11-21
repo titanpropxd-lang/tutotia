@@ -84,6 +84,7 @@ public final class TutorialPlugin extends JavaPlugin implements Listener, Comman
     Mundo mundo;
     private final java.util.Set<UUID> prueba = new java.util.HashSet<>();           // admins probando el tutorial
     private final Map<UUID, org.bukkit.GameMode> gmPrevio = new HashMap<>();
+    private final Map<UUID, Location> volverA = new HashMap<>();       // /tutorial rehacer: a donde vuelve el jugador al terminar
 
     // ------------------------------------------------------------------ ciclo de vida
     @Override
@@ -146,6 +147,7 @@ public final class TutorialPlugin extends JavaPlugin implements Listener, Comman
 
     /** id del personaje activo (MultiChar) o UUID del jugador */
     String clave(Player p) {
+        if (prueba.contains(p.getUniqueId())) return "u" + p.getUniqueId();      // prueba / rehacer: guia por jugador aunque tenga personaje
         try {
             org.bukkit.plugin.Plugin mc = Bukkit.getPluginManager().getPlugin("MultiChar");
             if (mc != null) {
@@ -720,6 +722,27 @@ public final class TutorialPlugin extends JavaPlugin implements Listener, Comman
         }, 10L);
     }
 
+    /** true si el jugador esta jugando con un personaje de MultiChar (o si no hay MultiChar). */
+    private boolean conPersonaje(Player p) {
+        try {
+            org.bukkit.plugin.Plugin mc = Bukkit.getPluginManager().getPlugin("MultiChar");
+            if (mc == null) return true;
+            Class<?> api = Class.forName("es.xsinex.multichar.MultiCharAPI", true, mc.getClass().getClassLoader());
+            return api.getMethod("getActiveCharacter", Player.class).invoke(null, p) != null;
+        } catch (Throwable t) { return true; }
+    }
+
+    /** Si alguien se desconecta repitiendo el tutorial, lo devuelvo ANTES de que MultiChar guarde su personaje (asi no queda en la isla). */
+    @EventHandler(priority = EventPriority.LOWEST)
+    public void onQuitRepeticion(PlayerQuitEvent ev) {
+        Player p = ev.getPlayer(); UUID u = p.getUniqueId();
+        Location back = volverA.remove(u);
+        if (back == null) return;
+        prueba.remove(u);
+        org.bukkit.GameMode g = gmPrevio.remove(u);
+        try { p.teleport(back); if (g != null) p.setGameMode(g); } catch (Throwable t) { getLogger().warning("No pude devolver a " + p.getName() + " de la repetición del tutorial: " + t); }
+    }
+
     /** Primera vez: al mundo del tutorial, con la guía de Alba. */
     private void entrarTutorial(Player p) {
         if (mundo == null || mundo.mundo() == null) { getLogger().warning("No hay mundo de tutorial: " + p.getName() + " sigue al flujo normal."); salidaTutorial(p); return; }
@@ -748,9 +771,9 @@ public final class TutorialPlugin extends JavaPlugin implements Listener, Comman
         if (prueba.remove(u)) {                                  // un admin probando: vuelve a donde estaba
             org.bukkit.GameMode g = gmPrevio.remove(u);
             if (g != null) p.setGameMode(g);
-            Location back = Bukkit.getWorlds().get(0).getSpawnLocation();
-            p.teleport(back);
-            p.sendMessage(c(pfx() + "§7(Prueba terminada: te devolví al spawn del mundo principal.)"));
+            Location pre = volverA.remove(u);
+            p.teleport(pre != null ? pre : Bukkit.getWorlds().get(0).getSpawnLocation());
+            p.sendMessage(c(pfx() + (pre != null ? "§7(Tutorial terminado: vuelves donde estabas.)" : "§7(Prueba terminada: te devolví al spawn del mundo principal.)")));
             return;
         }
         p.getInventory().clear();
@@ -1068,6 +1091,53 @@ public final class TutorialPlugin extends JavaPlugin implements Listener, Comman
                 s.sendMessage("§aIntro lanzada para " + t.getName() + ".");
                 return true;
             }
+            case "quitar": {   // le quita el tutorial a alguien y lo manda directo a elegir/crear personaje
+                if (a.length < 2) { s.sendMessage("§e/tutorial quitar <jugador> §7- le quita el tutorial y va directo a la selección de personaje (puede estar desconectado)"); return true; }
+                org.bukkit.OfflinePlayer op = Bukkit.getOfflinePlayer(a[1]);
+                UUID u = op.getUniqueId();
+                prog.set("cuenta." + u + ".hecha", true);
+                prog.set("cuenta." + u + ".fecha", System.currentTimeMillis());
+                prog.set("p.u" + u, null);
+                est.remove("u" + u);
+                guardar();
+                Player t = op.getPlayer();
+                if (t == null) { s.sendMessage("§a" + a[1] + " no está conectado: tutorial quitado. Cuando entre irá directo a elegir personaje."); return true; }
+                parar(u);
+                BossBar bb = barras.remove(u);
+                if (bb != null) bb.removeAll();
+                if (prueba.contains(u) || enEspera(t)) {
+                    salidaTutorial(t);
+                    s.sendMessage("§aTutorial quitado: " + t.getName() + (enEspera(t) || !volverA.containsKey(u) ? " pasa a la selección de personaje." : " vuelve donde estaba."));
+                } else s.sendMessage("§aTutorial quitado. " + t.getName() + " ya está jugando con un personaje (no hay nada que mover; si quieres llevarlo a elegir personaje, que use /personajes).");
+                return true;
+            }
+            case "rehacer": case "repetir": {   // hace que alguien vuelva a vivir el tutorial desde cero
+                Player t = a.length > 1 ? Bukkit.getPlayerExact(a[1]) : null;
+                if (t == null) { s.sendMessage("§e/tutorial rehacer <jugador> §7- vuelve a empezar el tutorial (debe estar conectado)"); return true; }
+                if (mundo == null || mundo.mundo() == null) { s.sendMessage("§cEl mundo del tutorial no existe/está desactivado."); return true; }
+                UUID u = t.getUniqueId();
+                boolean espera = enEspera(t), pj = !espera && conPersonaje(t);
+                if (!espera && !pj) { s.sendMessage("§c" + t.getName() + " está en la pantalla de personajes. Que entre a un personaje y repite el comando (o usa /tutorial quitar)."); return true; }
+                prog.set("cuenta." + u, null);
+                prog.set("p.u" + u, null);
+                est.remove("u" + u);
+                parar(u);
+                if (espera) {
+                    guardar();
+                    entrarTutorial(t);
+                    s.sendMessage("§aEl tutorial de " + t.getName() + " empieza de nuevo.");
+                    return true;
+                }
+                prueba.add(u);
+                gmPrevio.put(u, t.getGameMode());
+                volverA.put(u, t.getLocation().clone());
+                guardar();
+                mundo.llevar(t);
+                t.setGameMode(org.bukkit.GameMode.ADVENTURE);
+                t.sendMessage(c(pfx() + "§7Vuelves a la isla. Busca a §eAlba§7. Al terminar harás el viaje en barco y volverás donde estabas (tu inventario no se toca)."));
+                s.sendMessage("§aTutorial de " + t.getName() + " reiniciado (volverá a su posición al terminar).");
+                return true;
+            }
             case "recargar": mundo.recargar(); cargarTodo(); s.sendMessage("§aRecargado: " + guia.caps.size() + " capítulos, " + guia.todos.size() + " pasos."); return true;
             case "saltar": case "reiniciar": case "ir": {
                 if (a.length < 2) { s.sendMessage("/tutorial " + sub + " <jugador>" + (sub.equals("ir") ? " <capitulo|paso#>" : "")); return true; }
@@ -1093,7 +1163,7 @@ public final class TutorialPlugin extends JavaPlugin implements Listener, Comman
                 return true;
             }
             default:
-                s.sendMessage("§6/tutorial §fconstruir · mundo [ir|spawn] · barco <punto|limpiar|probar> · probar [jugador] · intro <jugador> · npc <crear|mover|borrar|lista|reparar> [id] · recargar · saltar|reiniciar <jugador> · ir <jugador> <capitulo|#paso> · estado");
+                s.sendMessage("§6/tutorial §fconstruir · mundo [ir|spawn] · barco <punto|limpiar|probar> · probar [jugador] · intro <jugador> · npc <crear|mover|borrar|lista|reparar> [id] · recargar · saltar|reiniciar <jugador> · ir <jugador> <capitulo|#paso> · §arehacer <jugador>§f (empieza de nuevo) · §aquitar <jugador>§f (sin tutorial → elegir personaje) · estado");
                 return true;
         }
     }
@@ -1106,7 +1176,7 @@ public final class TutorialPlugin extends JavaPlugin implements Listener, Comman
             return out;
         }
         if (a.length == 1) {
-            for (String x : new String[] { "construir", "mundo", "barco", "probar", "intro", "npc", "recargar", "saltar", "reiniciar", "ir", "estado" }) if (x.startsWith(a[0].toLowerCase(Locale.ROOT))) out.add(x);
+            for (String x : new String[] { "construir", "mundo", "barco", "probar", "intro", "npc", "recargar", "saltar", "reiniciar", "ir", "estado", "rehacer", "quitar" }) if (x.startsWith(a[0].toLowerCase(Locale.ROOT))) out.add(x);
         } else if (a.length == 2 && a[0].equalsIgnoreCase("barco")) {
             out.addAll(java.util.Arrays.asList("punto", "limpiar", "probar", "lista"));
         } else if (a.length == 2 && a[0].equalsIgnoreCase("mundo")) {

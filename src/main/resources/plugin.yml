@@ -1,5 +1,5 @@
 name: AetheriaTutorial
-version: 1.1.0
+version: 1.2.0
 main: es.xsinex.tutorial.TutorialPlugin
 api-version: '1.21'
 author: xsinex
@@ -12,7 +12,7 @@ commands:
     usage: /guia [paso|barra|saltar]
   tutorial:
     description: Administra el tutorial
-    usage: /tutorial <construir|mundo|barco|probar|intro|npc|recargar|saltar|reiniciar|ir|estado>
+    usage: /tutorial <construir|mundo|barco|probar|rehacer|quitar|intro|npc|recargar|saltar|reiniciar|ir|estado>
 permissions:
   tutorial.admin:
     default: op
